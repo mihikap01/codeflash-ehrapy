@@ -456,18 +456,14 @@ def _update_encoded_data(
         Encoded new X, the corresponding new var names, and the unencoded var names
     """
     idx = _get_categoricals_old_indices(var_names, categoricals)
-    # delete the original categorical column
-    del_cat_column_x = np.delete(X, list(idx), 1)
-    # create the new, encoded X
-    temp_x = np.hstack((transformed, del_cat_column_x))
-    # delete old categorical name
-    var_names = [col_name for col_idx, col_name in enumerate(var_names) if col_idx not in idx]
-    temp_var_names = categorical_prefixes + var_names
-
-    unencoded_var_names = [col_name for col_idx, col_name in enumerate(unencoded_var_names) if col_idx not in idx]
-    unencoded_var_names = unencoded_prefixes + unencoded_var_names
-
-    return temp_x, temp_var_names, unencoded_var_names
+    idx_arr = np.fromiter(idx, dtype=np.intp, count=len(idx))
+    mask = np.ones(X.shape[1], dtype=bool)
+    mask[idx_arr] = False
+    del_cat_column_x = X[:, mask]
+    temp_x = np.concatenate((transformed, del_cat_column_x), axis=1)
+    temp_var_names = categorical_prefixes + [var_names[i] for i in range(len(var_names)) if i not in idx]
+    temp_unencoded_var_names = unencoded_prefixes + [unencoded_var_names[i] for i in range(len(unencoded_var_names)) if i not in idx]
+    return temp_x, temp_var_names, temp_unencoded_var_names
 
 
 def _initial_encoding(
@@ -605,17 +601,9 @@ def _get_categoricals_old_indices(old_var_names: list[str], encoded_categories: 
     Returns:
         Set of all indices of formerly encoded categories belonging to a newly encoded categorical value.
     """
-    idx_list = set()
     category_set = set(encoded_categories)
-    for idx, old_var_name in enumerate(old_var_names):
-        # if the old variable was previously unencoded (only the case for numerical categoricals)
-        if old_var_name in category_set:
-            idx_list.add(idx)
-        # if the old variable was already encoded
-        elif old_var_name.startswith("ehrapycat_"):
-            if any(old_var_name[10:].startswith(category) for category in category_set):
-                idx_list.add(idx)
-
+    suffixes = tuple(category_set)
+    idx_list = {i for i, var in enumerate(old_var_names) if (var in category_set or (var.startswith("ehrapycat_") and var[10:].startswith(suffixes)))}
     return idx_list
 
 
