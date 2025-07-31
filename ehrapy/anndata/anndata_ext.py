@@ -17,7 +17,9 @@ if TYPE_CHECKING:
 
 
 def df_to_anndata(
-    df: pd.DataFrame, columns_obs_only: list[str] | None = None, index_column: str | None = None
+    df: pd.DataFrame,
+    columns_obs_only: list[str] | None = None,
+    index_column: str | None = None,
 ) -> AnnData:
     """Transform a given Pandas DataFrame into an AnnData object.
 
@@ -62,7 +64,9 @@ def df_to_anndata(
             columns_obs_only.remove(index_column)
         missing_cols = [col for col in columns_obs_only if col not in df.columns]
         if missing_cols:
-            raise ValueError(f"Columns {missing_cols} specified in columns_obs_only are not in the DataFrame.")
+            raise ValueError(
+                f"Columns {missing_cols} specified in columns_obs_only are not in the DataFrame."
+            )
         obs = df.loc[:, columns_obs_only].copy()
         df.drop(columns=columns_obs_only, inplace=True, errors="ignore")
     else:
@@ -146,7 +150,9 @@ def anndata_to_df(
     return df
 
 
-def move_to_obs(adata: AnnData, to_obs: list[str] | str, copy_obs: bool = False) -> AnnData:
+def move_to_obs(
+    adata: AnnData, to_obs: list[str] | str, copy_obs: bool = False
+) -> AnnData:
     """Move inplace or copy features from X to obs.
 
     Note that columns containing boolean values (either 0/1 or True(true)/False(false))
@@ -235,7 +241,9 @@ def move_to_x(adata: AnnData, to_x: list[str] | str, copy_x: bool = False) -> An
         to_x = [to_x]
 
     if not all(elem in adata.obs.columns.values for elem in to_x):
-        raise ValueError(f"Columns `{[col for col in to_x if col not in adata.obs.columns.values]}` are not in obs.")
+        raise ValueError(
+            f"Columns `{[col for col in to_x if col not in adata.obs.columns.values]}` are not in obs."
+        )
 
     cols_present_in_x = []
     cols_not_in_x = []
@@ -247,14 +255,18 @@ def move_to_x(adata: AnnData, to_x: list[str] | str, copy_x: bool = False) -> An
             cols_not_in_x.append(col)
 
     if cols_present_in_x:
-        logger.warn(f"Columns `{cols_present_in_x}` are already in X. Skipped moving `{cols_present_in_x}` to X. ")
+        logger.warn(
+            f"Columns `{cols_present_in_x}` are already in X. Skipped moving `{cols_present_in_x}` to X. "
+        )
 
     if cols_not_in_x:
         new_adata = concat([adata, AnnData(adata.obs[cols_not_in_x])], axis=1)
         if copy_x:
             new_adata.obs = adata.obs
         else:
-            new_adata.obs = adata.obs[adata.obs.columns[~adata.obs.columns.isin(cols_not_in_x)]]
+            new_adata.obs = adata.obs[
+                adata.obs.columns[~adata.obs.columns.isin(cols_not_in_x)]
+            ]
 
         # AnnData's concat discards var if they don't match in their keys, so we need to create a new var
         created_var = pd.DataFrame(index=cols_not_in_x)
@@ -270,7 +282,8 @@ def _get_var_indices_numeric_or_encoded(
     # layer: str | None = None,  # column_indices: Iterable[int] | None = None
 ) -> list[int]:
     return np.arange(0, adata.n_vars)[
-        (adata.var[FEATURE_TYPE_KEY] == NUMERIC_TAG) | (adata.var["feature_type"].isin(["one-hot", "multi-hot"]))
+        (adata.var[FEATURE_TYPE_KEY] == NUMERIC_TAG)
+        | (adata.var["feature_type"].isin(["one-hot", "multi-hot"]))
     ]
 
 
@@ -311,12 +324,15 @@ def _cast_obs_columns(obs: pd.DataFrame) -> pd.DataFrame:
         The type casted obs.
     """
     # only cast non numerical columns
-    object_columns = list(obs.select_dtypes(exclude=["number", "category", "bool"]).columns)
-    # type cast each non-numerical column to either bool (if possible) or category else
-    obs[object_columns] = obs[object_columns].apply(
-        lambda obs_name: obs_name.astype("category")
-        if not set(pd.unique(obs_name)).issubset({False, True, np.nan})
-        else obs_name.astype("bool"),
-        axis=0,
+    object_columns = list(
+        obs.select_dtypes(exclude=["number", "category", "bool"]).columns
     )
+    bool_set = {False, True, np.nan}
+    for col in object_columns:
+        vals = pd.unique(obs[col])
+        # cast to 'bool' if all unique values are subset of {False, True, np.nan}, else 'category'
+        if set(vals).issubset(bool_set):
+            obs[col] = obs[col].astype("bool")
+        else:
+            obs[col] = obs[col].astype("category")
     return obs
