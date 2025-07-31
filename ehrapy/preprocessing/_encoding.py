@@ -607,13 +607,13 @@ def _get_categoricals_old_indices(old_var_names: list[str], encoded_categories: 
     """
     idx_list = set()
     category_set = set(encoded_categories)
+    cat_prefixes = tuple(encoded_categories)
+
     for idx, old_var_name in enumerate(old_var_names):
-        # if the old variable was previously unencoded (only the case for numerical categoricals)
         if old_var_name in category_set:
             idx_list.add(idx)
-        # if the old variable was already encoded
         elif old_var_name.startswith("ehrapycat_"):
-            if any(old_var_name[10:].startswith(category) for category in category_set):
+            if old_var_name[10:].startswith(cat_prefixes):
                 idx_list.add(idx)
 
     return idx_list
